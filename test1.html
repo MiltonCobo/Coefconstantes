@@ -1,0 +1,294 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Nerdame test</title>
+  <script src="library/nerdamer.core.js"></script>
+  <!-- assuming you've saved the file in the root of course -->
+  <!-- LOAD ADD-ONS -->
+  <script src="library/Algebra.js"></script>
+  <script src="library/Calculus.js"></script>
+  <script src="library/Solve.js"></script>
+  <script src="library/Extra.js"></script>
+  <script type="text/javascript" async
+    src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.7/MathJax.js?config=TeX-MML-AM_CHTML"></script>
+  <!-- <script src="https://unpkg.com/d3@3/d3.min.js"></script> -->
+  <script src="https://unpkg.com/function-plot/dist/function-plot.js"></script>
+  <!-- <script src="https://unpkg.com/function-plot@1/dist/function-plot.js"></script> -->
+
+  <style>
+    body,
+    html,
+    table td,
+    table th,
+    input[type='text'] {
+      font-size: 11pt;
+      font-family: verdana, arial, sans-serif;
+    }
+
+    h1 {
+      font-size: 11pt;
+    }
+
+    input[type='text'] {
+      padding: 5px;
+      width: 200px;
+    }
+
+    table {
+      border-collapse: collapse;
+    }
+
+    table td,
+    table th {
+      padding: 5px;
+      border: 1px solid lightgray;
+    }
+
+    table th {
+      background-color: lightgray;
+    }
+  </style>
+</head>
+
+<body>
+  <table>
+    <tr>
+      <th>Equação</th>
+      <td>
+        <input type="text" id="expr" placeholder="3*y'' + 2*y' + 5*y = 0" style="width: 200px;" />
+        <span style="color: green;"> y(0)= </span>
+        <input type="text" id="A" placeholder="1" style="width: 80px;" />
+        <span style="color: green;"> y'(0)= </span>
+        <input type="text" id="B" placeholder="0" style="width: 80px;" />
+      </td>
+    </tr>
+    <tr>
+      <th></th>
+    </tr>
+    <tr>
+      <th></th>
+    </tr>
+    <tr>
+      <th>Soluções <br> fundamentais </th>
+      <td>
+        <div id="soluções">$$\exp(x)$$</div>
+      </td>
+    </tr>
+    <tr>
+      <th></th>
+    </tr>
+    <tr>
+      <th>Solução<br> particular</th>
+      <td>
+        <div id="solução particular"></div>
+      </td>
+    </tr>
+    <tr>
+      <th></th>
+    </tr>
+    <tr>
+      <th>Gráfico</th>
+      <td>
+        <div id="plot"></div>
+      </td>
+    </tr>
+  </table>
+</body>
+<script>
+  let diffeq = `3 y'' + 2 y' + 5 y = 0`;
+  let A = '1';
+  let B = '0';
+
+  let x0 = '0';
+
+  function rewrite(string) {
+    let st = string;
+    st = st
+      .replace(/y''/gi, `x^2`)
+      .replace(/y'/gi, `x^1`)
+      .replace(/y/gi, `x^0`);
+
+    return st;
+  }
+
+  function makeGraph(eq, A, B) {
+    let eqn = nerdamer(eq);
+    let roots = eqn.solveFor('x');
+
+    let sol1, sol2;
+    if (roots.length == 1) {
+      let r = roots.toString();
+
+      sol1 = nerdamer('exp(r*x)', { r });
+      sol2 = nerdamer('x*exp(r*x)', { r });
+    } else if (
+      nerdamer('imagpart(r)', { r: roots[0].toString() }).text() == '0'
+    ) {
+      let r1 = roots[0].toString();
+      let r2 = roots[1].toString();
+
+      sol1 = nerdamer('exp(r1*x)', { r1 });
+      sol2 = nerdamer('exp(r2*x)', { r2 });
+    } else {
+      let r = roots[0].text();
+
+      let a = nerdamer('realpart(r)', {
+        r,
+      }).text('fractions');
+      let b = nerdamer('imagpart(r)', {
+        r,
+      }).text('fractions');
+
+      sol1 = nerdamer('exp( a  x )*cos( b x )', { a, b });
+      sol2 = nerdamer('exp( a  x )*sin( b x )', { a, b });
+    }
+
+    let fun1 = sol1
+      .text()
+      .replace(`e^`, 'exp')
+      .replace(/expx/g, 'exp(x)');
+    let fun2 = sol2
+      .text()
+      .replace(`e^`, 'exp')
+      .replace(/expx/g, 'exp(x)');
+
+    // nerdamer write e^....
+
+    let dsol1 = nerdamer('diff(f)', { f: sol1.text() });
+    let dsol2 = nerdamer('diff(f)', { f: sol2.text() });
+
+    let der1 = dsol1
+      .text()
+      .replace(/e\^/g, 'exp')
+      .replace(/expx/g, 'exp(x)');
+
+    let der2 = dsol2
+      .text()
+      .replace(/e\^/g, 'exp') // /g replaces globally  /i is case sensitive
+      .replace(/expx/g, 'exp(x)');
+
+    const soluções = document.getElementById('soluções');
+
+    let u1 = sol1.evaluate({ x: x0 }).text();
+    let u2 = sol2.evaluate({ x: x0 }).text();
+
+    let w1 = dsol1.evaluate({ x: x0 }).text();
+    let w2 = dsol2.evaluate({ x: x0 }).text();
+
+    let eq1 = nerdamer('x*u1 + y*u2 = A', { u1, u2, A }).text();
+    let eq2 = nerdamer('x*w1 + y*w2 = B', { w1, w2, B }).text();
+
+    nerdamer.set('SOLUTIONS_AS_OBJECT', true);
+    let constants = nerdamer.solveEquations([eq1, eq2]);
+
+    let c1 = constants['x'];
+    let c2 = constants['y'];
+
+    console.log('c1 = ', c1);
+    console.log('c2 = ', c2);
+
+    let fun = nerdamer('c1*sol1 + c2* sol2', { c1, c2, sol1, sol2 });
+    let dfun = nerdamer('diff(fun)', { fun });
+
+    console.log('fun = ', fun);
+    console.log('dfun = ', dfun);
+
+    soluções.innerHTML =
+      `<p>  <span style="color:blue; padding-left: 20px;">  equação caract.= </span>\\( ` +
+      nerdamer.convertToLaTeX(eqn.text()) +
+      ` \\) </p> <br/>` +
+      `<p>  \\( \\color{red}{ y_1(x) = ` +
+      nerdamer.convertToLaTeX(sol1.text()) +
+      `, } \\quad\\) 
+				\\( \\color{blue}{ y_2(x) =` +
+      nerdamer.convertToLaTeX(sol2.text()) +
+      `}\\)  </p>`;
+
+    const soluçãoParticular = document.getElementById('solução particular');
+
+    soluçãoParticular.innerHTML =
+      `<p>  </span> 
+				\\( \\color{green}{y(x) = ` +
+      nerdamer.convertToLaTeX(fun.text('decimals', 1)) +
+      ` }\\) </p>`
+
+
+    let funPlot = nerdamer('c1*sol1 + c2* sol2', { c1, c2, sol1, sol2 })
+      .text('decimals', 1)
+      .replace(/e\^/g, 'exp')
+      .replace(/expx/g, 'exp(x)');
+
+    let dfunPlot = nerdamer('diff(fun)', { fun })
+      .text()
+      .replace(/e\^/g, 'exp')
+      .replace(/expx/g, 'exp(x)');
+
+    console.log('fun = ', fun);
+    console.log('dfun = ', dfun);
+
+    functionPlot({
+      target: '#plot',
+      disableZoom: true,
+      grid: true,
+      //plugins: [functionPlot.plugins.zoomBox()],
+      data: [
+        {
+          fn: funPlot,
+          color: 'green',
+          derivative: {
+            fn: dfunPlot,
+            updateOnMouseMove: true,
+          },
+        },
+        {
+          fn: fun2,
+          color: 'blue',
+          // derivative: {
+          // 	fn: der2,
+          // 	updateOnMouseMove: true,
+          // },
+        },
+        {
+          fn: fun1,
+          color: 'red',
+          // derivative: {
+          // 	fn: der1,
+          // 	updateOnMouseMove: true,
+          // },
+        },
+      ],
+    });
+  } // END makeGraph
+
+  let eq = rewrite(diffeq);
+
+  makeGraph(eq, A, B);
+
+  const expr = document.getElementById('expr');
+  const valueA = document.getElementById('A');
+  const valueB = document.getElementById('B');
+
+  expr.onchange = function () {
+    diffeq = expr.value;
+    diffeq = rewrite(diffeq);
+    makeGraph(diffeq, A, B);
+    MathJax.Hub.Typeset();
+  };
+  valueA.onchange = function () {
+    A = valueA.value;
+    diffeq = rewrite(diffeq);
+    makeGraph(diffeq, A, B);
+    MathJax.Hub.Typeset();
+  };
+  valueB.onchange = function () {
+    B = valueB.value;
+    diffeq = rewrite(diffeq);
+    makeGraph(diffeq, A, B);
+    MathJax.Hub.Typeset();
+  };
+</script>
+
+</html>
